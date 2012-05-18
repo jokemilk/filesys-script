@@ -1,0 +1,14 @@
+this is a auto script to create filesystem for embeded linux OS.
+
+HOW TO USE!
+
+1. Copy the script to a folder where you want to put. 
+2. use terminal to run the script.do not use double click to run.
+3. follow the instruct and enjoy.
+
+
+
+Alert!
+1.do not run the script in root directory.
+2.do not run this as root user.
+3.do not doulbe click to run.

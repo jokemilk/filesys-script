@@ -1,0 +1,169 @@
+#!/bin/sh
+export DEST=$1
+export HOSTNAME=$2
+
+
+
+if test "$DEST" = ""  ; then
+    echo "please input the dir name...."
+    read DEST 
+fi
+if test "$HOSTNAME" = ""  ; then
+    echo "please input the HOSTNAME...."
+    read HOSTNAME 
+fi    
+
+echo "DIR = $DEST\t HOSTNAME = $HOSTNAME!\n"
+
+mkdir $DEST
+cd $DEST
+
+echo "--------Create root,dev....----------"  
+mkdir root dev etc boot tmp var sys proc lib mnt home usr home/$HOSTNAME sddisk udisk usr/share
+mkdir etc/init.d etc/rc.d etc/sysconfig  
+mkdir usr/sbin usr/bin usr/lib usr/modules  
+echo "make node in dev/console dev/null"  
+sudo mknod -m 600 dev/console c 5 1  
+sudo mknod -m 600 dev/null  c 1 3  
+mkdir mnt/etc mnt/jffs2 mnt/yaffs mnt/data mnt/temp  
+mkdir var/lib var/lock var/run var/tmp  
+chmod 1777 tmp  
+chmod 1777 var/tmp  
+echo "-------make direction done---------" 
+ 
+echo "-------Create etc/fstab---------"
+echo "#device		mount-point	type	options		dump	fsck order
+proc		/proc		proc	defaults		0	0
+tmpfs		/tmp		tmpfs	defaults		0	0
+sysfs		/sys		sysfs	defaults		0	0
+tmpfs		/dev		tmpfs	defaults		0	0
+var		/dev		tmpfs	defaults		0	0
+ramfs		/dev		ramfs	defaults		0	0" > etc/fstab
+
+echo "-------Create etc/group---------"
+echo "root:*:0:
+daemon:*:1:
+bin:*:2:
+sys:*:3:
+adm:*:4:
+tty:*:5:
+disk:*:6:
+lp:*:7:lp
+mail:*:8:
+news:*:9:
+uucp:*:10:
+proxy:*:13:
+kmem:*:15:
+dialout:*:20:
+fax:*:21:
+voice:*:22:
+cdrom:*:24:
+floppy:*:25:
+tape:*:26:
+sudo:*:27:
+audio:*:29:
+ppp:x:99:
+500:x:500:$HOSTNAME
+501:x:501:$HOSTNAME" > etc/goup
+
+echo "-------Create etc/inittab---------"
+echo "# /etc/inittab
+::sysinit:/etc/init.d/rcS
+console::askfirst:-/bin/sh
+::once:/usr/sbin/telnetd -l /bin/login
+::ctrlaltdel:/sbin/reboot
+::shutdown:/bin/umount -a -r" > etc/inittab
+
+chmod 777 etc/inittab
+
+echo "-------Create etc/shadow---------"
+echo "" > etc/shadow
+
+echo "-------Create etc/passwd---------"
+echo "root::0:0:root:/:/bin/sh
+ftp::14:50:FTP User:/var/ftp:
+bin:*:1:1:bin:/bin:
+daemon:*:2:2:daemon:/sbin:
+nobody:*:99:99:Nobody:/:
+$HOSTNAME:$1$8GIZx6d9$L2ctqdXbYDzkbxNURpE4z/:502:502:Linux User,,,:/home/$HOSTNAME:/bin/sh" > etc/"passwd"
+
+echo "-------Create etc/mdev.conf---------"
+echo "sd[a-z]*[0-9]		0:0	0660	@(mount -t vfat -o iocharset=cp936 /dev/$MDEV /udisk)
+sd[a-z]*[0-9]		0:0	0660	*(umount /mnt/udisk)
+mmcblk[0-9]*p[0-9]	0:0	0660	@(mount -t vfat -o iocharset=cp936 /dev/$MDEV /sddisk)
+mmcblk[0-9]*p[0-9]	0:0	0660	*(umount /mnt/sd)" > etc/mdev.conf
+
+echo "-------Create etc/profile---------"
+echo "# Ash profile
+# vim: syntax=sh
+# No core files by default
+#ulimit -S -c 0 > /dev/null 2>&1
+export set HOME=/root
+export set QTDIR=/opt/qt-4.8
+export set QPEDIR=/opt/qt-4.8
+export set QWS_DISPLAY="LinuxFB:/dev/fb0"
+export set QWS_DISPLAY="LinuxFB:mmWidth130:mmHeight100:0"
+export set QWS_KEYBOARD="TTY:/dev/tty1"
+if [ -f /sys/devices/virtual/input/input0/uevent ] ; then
+	export set TSLIB_TSDEVICE=/dev/event0
+	export set TSLIB_CALIBFILE=/etc/pointercal
+	export set TSLIB_CONFFILE=/etc/ts.conf
+	export set TSLIB_PLUGINDIR=/lib/ts
+	export set QWS_MOUSE_PROTO="TSLIB:/dev/event0 Intellimouse:/dev/mouse0"
+else
+	export set QWS_MOUSE_PROTO="Intellimouse:/dev/mouse0"
+fi
+export set QT_PLUGIN_PATH=$QTDIR/plugins/
+export set QT_QWS_FONTDIR=$QTDIR/lib/fonts/
+export set PATH=$QPEDIR/bin:$PATH
+export set LD_LIBRARY_PATH=$QTDIR/lib:$QPEDIR/plugins/imageformats:$LD_LIBRARY_PATH
+USER="`id -un`"
+LOGNAME=$USER
+PS1='[\u@\h \W]# '
+PATH=$PATH
+HOSTNAME=`/bin/hostname`
+export USER LOGNAME PS1 PATH" > etc/profile
+
+echo "-------Create etc/resolv.conf---------"
+echo "nameserver 202.96.128.166" > etc/resolv.conf
+
+echo "-------Create etc/init.d/rcS---------"
+echo "#!/bin/sh
+
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+runlevel=S
+prevlevel=N
+umask 022
+export PATH runlevel prevlevel
+
+#
+#	Trap CTRL-C &c only in this shell so we can interrupt subprocesses.
+#
+
+mount -a
+mkdir -p /dev/pts
+mount -t devpts devpts /dev/pts
+echo /sbin/mdev > /proc/sys/kernel/hotplug
+mdev -s
+mkdir -p /var/lock
+
+mkdir /dev/fb /dev/v4l
+ln -s /dev/fb0 /dev/fb/0
+ln -s /dev/video0 /dev/v4l/video0
+
+hwclock -s
+EmbedSky_wdg &
+
+echo "************booting to myboard *****************"
+echo "Kernel version:linux-3.2"
+echo "jokemilk"
+echo "************************************************"
+
+
+/bin/hostname -F /etc/sysconfig/HOSTNAME" > etc/init.d/rcS
+chmod 777 etc/init.d/rcS
+
+echo "-------Create etc/sysconfig/HOSTNAME---------"
+echo "$HOSTNAME" > etc/sysconfig/HOSTNAME
+
